@@ -158,6 +158,11 @@ async def get_camino_diagram(camino_id: int):
             "pts": [origin['identificador']],
         })
 
+        # Recuerda si el paso anterior terminó en un puente (bridge): si es
+        # así, el repartidor de entrada de este paso es el destino de ese
+        # puente y aún no se ha añadido al path, así que hay que añadirlo.
+        had_bridge = False
+
         for idx, s in enumerate(steps):
             # Dirección: ¿cuál es el rep de entrada?
             if s['rep_a_id'] == current_rep_id:
@@ -182,8 +187,11 @@ async def get_camino_diagram(camino_id: int):
                     key=lambda x: int(x)
                 )
 
-            # Repartidor de entrada (solo en el primer paso)
-            if idx == 0:
+            # Repartidor de entrada: en el primer paso siempre, y en los
+            # siguientes solo si el paso anterior terminó en un puente
+            # (si no, el rep de entrada ya se añadió como rep de salida
+            # del paso anterior).
+            if idx == 0 or had_bridge:
                 path.append({"t": "rp", "c": en_rep_cod, "i": en_inst})
 
             # Tramo de fibra
@@ -206,8 +214,10 @@ async def get_camino_diagram(camino_id: int):
                     )
                 path.append({"t": "br", "pA": pA, "pB": pB})
                 current_rep_id = br_t['rep_id']
+                had_bridge = True
             else:
                 current_rep_id = ex_rep_id
+                had_bridge = False
 
         # Nodo equipo destino
         dest_pts = [dest['identificador']]
