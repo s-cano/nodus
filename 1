@@ -1,0 +1,258 @@
+-- ================================================================
+-- NODUS · Cable Valencia Sud → Torrent  (48F)
+-- ================================================================
+-- Instalaciones: D102 (Oficinas VSud), E019 (Paiporta), E018 (Picanya),
+--                SA17 (S/E Torrent), D401 (Talleres Torrent), E017 (Torrent)
+-- 8 tramos · 92 fibras · 184 puertos
+
+BEGIN;
+SET search_path = nodus, public;
+
+-- 1. UBICACIONES
+-- D102 y D401 son instalaciones nuevas — crear ubicaciones
+-- SA17, E019, E018, E017 ya tienen ubicación 'Cuarto técnico'
+INSERT INTO ubicacion (instalacion_id, nombre) VALUES
+  ('D102','Cuarto técnico'),
+  ('D401','Cuarto técnico')
+ON CONFLICT (instalacion_id, nombre) DO NOTHING;
+
+-- 2. REPARTIDORES
+INSERT INTO repartidor (codigo, ubicacion_id, tipo_conector, pulido, verificado)
+SELECT v.cod, u.id, 'SC', 'SC/PC', true
+FROM (VALUES
+  ('REP-001','D102'),
+  ('REP-178','E019'),
+  ('REP-179','E018'),
+  ('REP-SA17','SA17'),
+  ('REP-172','D401'),
+  ('REP-180','E017')
+) AS v(cod, inst_id)
+JOIN ubicacion u ON u.instalacion_id = v.inst_id AND u.nombre = 'Cuarto técnico'
+ON CONFLICT (codigo) DO NOTHING;
+
+-- 3. CABLE
+INSERT INTO cable (codigo, tipo_fibra, num_fibras_total, ruta_instalaciones, notas)
+VALUES ('CAB-VSUD-TORRENT','SM',48,'D102,E019,E018,SA17,D401,E017','Cable 48F Oficinas Valencia Sud→Paiporta→Picanya→S/E Torrent→Talleres Torrent→Torrent. 8 tramos.')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- 4. TRAMOS
+INSERT INTO tramo (codigo, cable_id, rep_extremo_a, rep_extremo_b, num_fibras, puertos_a, puertos_b)
+SELECT v.cod, c.id, ra.id, rb.id, v.nf, v.pa, v.pb
+FROM (VALUES
+  ('TRM-VT-001-178','CAB-VSUD-TORRENT','REP-001','REP-178',16,'145-160','17-32'),
+  ('TRM-VT-001-SA17','CAB-VSUD-TORRENT','REP-001','REP-SA17',6,'161-166','1-6'),
+  ('TRM-VT-001-172','CAB-VSUD-TORRENT','REP-001','REP-172',6,'167-172','1-6'),
+  ('TRM-VT-001-180','CAB-VSUD-TORRENT','REP-001','REP-180',20,'173-192','29-48'),
+  ('TRM-VT-178-179','CAB-VSUD-TORRENT','REP-178','REP-179',16,'1-16','17-32'),
+  ('TRM-VT-179-180','CAB-VSUD-TORRENT','REP-179','REP-180',16,'1-16','1-16'),
+  ('TRM-VT-SA17-180','CAB-VSUD-TORRENT','REP-SA17','REP-180',6,'7-12','17-22'),
+  ('TRM-VT-172-180','CAB-VSUD-TORRENT','REP-172','REP-180',6,'7-12','23-28')
+) AS v(cod,cab,rep_a,rep_b,nf,pa,pb)
+JOIN cable      c  ON c.codigo  = v.cab
+JOIN repartidor ra ON ra.codigo = v.rep_a
+JOIN repartidor rb ON rb.codigo = v.rep_b
+ON CONFLICT (codigo) DO NOTHING;
+
+-- 5. PUERTOS
+INSERT INTO puerto (fibra_id, repartidor_id, identificador)
+SELECT f.id, r.id, v.ident
+FROM (VALUES
+  ('TRM-VT-001-178',1,'REP-001','145'),
+  ('TRM-VT-001-178',1,'REP-178','17'),
+  ('TRM-VT-001-178',2,'REP-001','146'),
+  ('TRM-VT-001-178',2,'REP-178','18'),
+  ('TRM-VT-001-178',3,'REP-001','147'),
+  ('TRM-VT-001-178',3,'REP-178','19'),
+  ('TRM-VT-001-178',4,'REP-001','148'),
+  ('TRM-VT-001-178',4,'REP-178','20'),
+  ('TRM-VT-001-178',5,'REP-001','149'),
+  ('TRM-VT-001-178',5,'REP-178','21'),
+  ('TRM-VT-001-178',6,'REP-001','150'),
+  ('TRM-VT-001-178',6,'REP-178','22'),
+  ('TRM-VT-001-178',7,'REP-001','151'),
+  ('TRM-VT-001-178',7,'REP-178','23'),
+  ('TRM-VT-001-178',8,'REP-001','152'),
+  ('TRM-VT-001-178',8,'REP-178','24'),
+  ('TRM-VT-001-178',9,'REP-001','153'),
+  ('TRM-VT-001-178',9,'REP-178','25'),
+  ('TRM-VT-001-178',10,'REP-001','154'),
+  ('TRM-VT-001-178',10,'REP-178','26'),
+  ('TRM-VT-001-178',11,'REP-001','155'),
+  ('TRM-VT-001-178',11,'REP-178','27'),
+  ('TRM-VT-001-178',12,'REP-001','156'),
+  ('TRM-VT-001-178',12,'REP-178','28'),
+  ('TRM-VT-001-178',13,'REP-001','157'),
+  ('TRM-VT-001-178',13,'REP-178','29'),
+  ('TRM-VT-001-178',14,'REP-001','158'),
+  ('TRM-VT-001-178',14,'REP-178','30'),
+  ('TRM-VT-001-178',15,'REP-001','159'),
+  ('TRM-VT-001-178',15,'REP-178','31'),
+  ('TRM-VT-001-178',16,'REP-001','160'),
+  ('TRM-VT-001-178',16,'REP-178','32'),
+  ('TRM-VT-001-SA17',1,'REP-001','161'),
+  ('TRM-VT-001-SA17',1,'REP-SA17','1'),
+  ('TRM-VT-001-SA17',2,'REP-001','162'),
+  ('TRM-VT-001-SA17',2,'REP-SA17','2'),
+  ('TRM-VT-001-SA17',3,'REP-001','163'),
+  ('TRM-VT-001-SA17',3,'REP-SA17','3'),
+  ('TRM-VT-001-SA17',4,'REP-001','164'),
+  ('TRM-VT-001-SA17',4,'REP-SA17','4'),
+  ('TRM-VT-001-SA17',5,'REP-001','165'),
+  ('TRM-VT-001-SA17',5,'REP-SA17','5'),
+  ('TRM-VT-001-SA17',6,'REP-001','166'),
+  ('TRM-VT-001-SA17',6,'REP-SA17','6'),
+  ('TRM-VT-001-172',1,'REP-001','167'),
+  ('TRM-VT-001-172',1,'REP-172','1'),
+  ('TRM-VT-001-172',2,'REP-001','168'),
+  ('TRM-VT-001-172',2,'REP-172','2'),
+  ('TRM-VT-001-172',3,'REP-001','169'),
+  ('TRM-VT-001-172',3,'REP-172','3'),
+  ('TRM-VT-001-172',4,'REP-001','170'),
+  ('TRM-VT-001-172',4,'REP-172','4'),
+  ('TRM-VT-001-172',5,'REP-001','171'),
+  ('TRM-VT-001-172',5,'REP-172','5'),
+  ('TRM-VT-001-172',6,'REP-001','172'),
+  ('TRM-VT-001-172',6,'REP-172','6'),
+  ('TRM-VT-001-180',1,'REP-001','173'),
+  ('TRM-VT-001-180',1,'REP-180','29'),
+  ('TRM-VT-001-180',2,'REP-001','174'),
+  ('TRM-VT-001-180',2,'REP-180','30'),
+  ('TRM-VT-001-180',3,'REP-001','175'),
+  ('TRM-VT-001-180',3,'REP-180','31'),
+  ('TRM-VT-001-180',4,'REP-001','176'),
+  ('TRM-VT-001-180',4,'REP-180','32'),
+  ('TRM-VT-001-180',5,'REP-001','177'),
+  ('TRM-VT-001-180',5,'REP-180','33'),
+  ('TRM-VT-001-180',6,'REP-001','178'),
+  ('TRM-VT-001-180',6,'REP-180','34'),
+  ('TRM-VT-001-180',7,'REP-001','179'),
+  ('TRM-VT-001-180',7,'REP-180','35'),
+  ('TRM-VT-001-180',8,'REP-001','180'),
+  ('TRM-VT-001-180',8,'REP-180','36'),
+  ('TRM-VT-001-180',9,'REP-001','181'),
+  ('TRM-VT-001-180',9,'REP-180','37'),
+  ('TRM-VT-001-180',10,'REP-001','182'),
+  ('TRM-VT-001-180',10,'REP-180','38'),
+  ('TRM-VT-001-180',11,'REP-001','183'),
+  ('TRM-VT-001-180',11,'REP-180','39'),
+  ('TRM-VT-001-180',12,'REP-001','184'),
+  ('TRM-VT-001-180',12,'REP-180','40'),
+  ('TRM-VT-001-180',13,'REP-001','185'),
+  ('TRM-VT-001-180',13,'REP-180','41'),
+  ('TRM-VT-001-180',14,'REP-001','186'),
+  ('TRM-VT-001-180',14,'REP-180','42'),
+  ('TRM-VT-001-180',15,'REP-001','187'),
+  ('TRM-VT-001-180',15,'REP-180','43'),
+  ('TRM-VT-001-180',16,'REP-001','188'),
+  ('TRM-VT-001-180',16,'REP-180','44'),
+  ('TRM-VT-001-180',17,'REP-001','189'),
+  ('TRM-VT-001-180',17,'REP-180','45'),
+  ('TRM-VT-001-180',18,'REP-001','190'),
+  ('TRM-VT-001-180',18,'REP-180','46'),
+  ('TRM-VT-001-180',19,'REP-001','191'),
+  ('TRM-VT-001-180',19,'REP-180','47'),
+  ('TRM-VT-001-180',20,'REP-001','192'),
+  ('TRM-VT-001-180',20,'REP-180','48'),
+  ('TRM-VT-178-179',1,'REP-178','1'),
+  ('TRM-VT-178-179',1,'REP-179','17'),
+  ('TRM-VT-178-179',2,'REP-178','2'),
+  ('TRM-VT-178-179',2,'REP-179','18'),
+  ('TRM-VT-178-179',3,'REP-178','3'),
+  ('TRM-VT-178-179',3,'REP-179','19'),
+  ('TRM-VT-178-179',4,'REP-178','4'),
+  ('TRM-VT-178-179',4,'REP-179','20'),
+  ('TRM-VT-178-179',5,'REP-178','5'),
+  ('TRM-VT-178-179',5,'REP-179','21'),
+  ('TRM-VT-178-179',6,'REP-178','6'),
+  ('TRM-VT-178-179',6,'REP-179','22'),
+  ('TRM-VT-178-179',7,'REP-178','7'),
+  ('TRM-VT-178-179',7,'REP-179','23'),
+  ('TRM-VT-178-179',8,'REP-178','8'),
+  ('TRM-VT-178-179',8,'REP-179','24'),
+  ('TRM-VT-178-179',9,'REP-178','9'),
+  ('TRM-VT-178-179',9,'REP-179','25'),
+  ('TRM-VT-178-179',10,'REP-178','10'),
+  ('TRM-VT-178-179',10,'REP-179','26'),
+  ('TRM-VT-178-179',11,'REP-178','11'),
+  ('TRM-VT-178-179',11,'REP-179','27'),
+  ('TRM-VT-178-179',12,'REP-178','12'),
+  ('TRM-VT-178-179',12,'REP-179','28'),
+  ('TRM-VT-178-179',13,'REP-178','13'),
+  ('TRM-VT-178-179',13,'REP-179','29'),
+  ('TRM-VT-178-179',14,'REP-178','14'),
+  ('TRM-VT-178-179',14,'REP-179','30'),
+  ('TRM-VT-178-179',15,'REP-178','15'),
+  ('TRM-VT-178-179',15,'REP-179','31'),
+  ('TRM-VT-178-179',16,'REP-178','16'),
+  ('TRM-VT-178-179',16,'REP-179','32'),
+  ('TRM-VT-179-180',1,'REP-179','1'),
+  ('TRM-VT-179-180',1,'REP-180','1'),
+  ('TRM-VT-179-180',2,'REP-179','2'),
+  ('TRM-VT-179-180',2,'REP-180','2'),
+  ('TRM-VT-179-180',3,'REP-179','3'),
+  ('TRM-VT-179-180',3,'REP-180','3'),
+  ('TRM-VT-179-180',4,'REP-179','4'),
+  ('TRM-VT-179-180',4,'REP-180','4'),
+  ('TRM-VT-179-180',5,'REP-179','5'),
+  ('TRM-VT-179-180',5,'REP-180','5'),
+  ('TRM-VT-179-180',6,'REP-179','6'),
+  ('TRM-VT-179-180',6,'REP-180','6'),
+  ('TRM-VT-179-180',7,'REP-179','7'),
+  ('TRM-VT-179-180',7,'REP-180','7'),
+  ('TRM-VT-179-180',8,'REP-179','8'),
+  ('TRM-VT-179-180',8,'REP-180','8'),
+  ('TRM-VT-179-180',9,'REP-179','9'),
+  ('TRM-VT-179-180',9,'REP-180','9'),
+  ('TRM-VT-179-180',10,'REP-179','10'),
+  ('TRM-VT-179-180',10,'REP-180','10'),
+  ('TRM-VT-179-180',11,'REP-179','11'),
+  ('TRM-VT-179-180',11,'REP-180','11'),
+  ('TRM-VT-179-180',12,'REP-179','12'),
+  ('TRM-VT-179-180',12,'REP-180','12'),
+  ('TRM-VT-179-180',13,'REP-179','13'),
+  ('TRM-VT-179-180',13,'REP-180','13'),
+  ('TRM-VT-179-180',14,'REP-179','14'),
+  ('TRM-VT-179-180',14,'REP-180','14'),
+  ('TRM-VT-179-180',15,'REP-179','15'),
+  ('TRM-VT-179-180',15,'REP-180','15'),
+  ('TRM-VT-179-180',16,'REP-179','16'),
+  ('TRM-VT-179-180',16,'REP-180','16'),
+  ('TRM-VT-SA17-180',1,'REP-SA17','7'),
+  ('TRM-VT-SA17-180',1,'REP-180','17'),
+  ('TRM-VT-SA17-180',2,'REP-SA17','8'),
+  ('TRM-VT-SA17-180',2,'REP-180','18'),
+  ('TRM-VT-SA17-180',3,'REP-SA17','9'),
+  ('TRM-VT-SA17-180',3,'REP-180','19'),
+  ('TRM-VT-SA17-180',4,'REP-SA17','10'),
+  ('TRM-VT-SA17-180',4,'REP-180','20'),
+  ('TRM-VT-SA17-180',5,'REP-SA17','11'),
+  ('TRM-VT-SA17-180',5,'REP-180','21'),
+  ('TRM-VT-SA17-180',6,'REP-SA17','12'),
+  ('TRM-VT-SA17-180',6,'REP-180','22'),
+  ('TRM-VT-172-180',1,'REP-172','7'),
+  ('TRM-VT-172-180',1,'REP-180','23'),
+  ('TRM-VT-172-180',2,'REP-172','8'),
+  ('TRM-VT-172-180',2,'REP-180','24'),
+  ('TRM-VT-172-180',3,'REP-172','9'),
+  ('TRM-VT-172-180',3,'REP-180','25'),
+  ('TRM-VT-172-180',4,'REP-172','10'),
+  ('TRM-VT-172-180',4,'REP-180','26'),
+  ('TRM-VT-172-180',5,'REP-172','11'),
+  ('TRM-VT-172-180',5,'REP-180','27'),
+  ('TRM-VT-172-180',6,'REP-172','12'),
+  ('TRM-VT-172-180',6,'REP-180','28')
+) AS v(tramo_cod, fibra_num, rep_cod, ident)
+JOIN tramo      t ON t.codigo   = v.tramo_cod
+JOIN fibra      f ON f.tramo_id = t.id AND f.numero = v.fibra_num
+JOIN repartidor r ON r.codigo   = v.rep_cod
+ON CONFLICT (repartidor_id, identificador) DO NOTHING;
+
+COMMIT;
+
+-- VERIFICACIÓN:
+-- SET search_path = nodus, public;
+-- SELECT r.codigo, COUNT(p.id) puertos
+-- FROM repartidor r JOIN puerto p ON p.repartidor_id=r.id
+-- WHERE r.codigo IN ('REP-001','REP-172','REP-178','REP-179','REP-180','REP-SA17')
+-- GROUP BY r.codigo ORDER BY r.codigo;
+-- Esperado: REP-001=48, REP-172=12, REP-178=32, REP-179=32, REP-180=48, REP-SA17=12

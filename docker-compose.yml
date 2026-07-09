@@ -1,0 +1,43 @@
+services:
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - nodus_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 10s
+      retries: 5
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nodus_net
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - nodus_net
+    depends_on:
+      - api
+
+networks:
+  nodus_net:
+
+volumes:
+  postgres_data:

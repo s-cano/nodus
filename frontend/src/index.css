@@ -1,0 +1,27 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-0: #080c14; --bg-1: #0d1321; --bg-2: #111827; --bg-3: #1a2235; --bg-4: #243048;
+  --border: #1e2d45; --border-2: #2a3f5f;
+  --text-1: #e2e8f0; --text-2: #94a3b8; --text-3: #64748b;
+  --text-mono: 'JetBrains Mono', monospace;
+  --cyan: #0ea5e9; --cyan-dim: #0369a1;
+  --libre: #22c55e; --ocupada: #f59e0b; --reservada: #8b5cf6; --danada: #ef4444;
+  --node-verified: #0ea5e9; --node-provisional: #f59e0b;
+}
+html, body, #root { height: 100%; font-family: 'IBM Plex Sans', sans-serif; background: var(--bg-0); color: var(--text-1); font-size: 14px; line-height: 1.5; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+.mono { font-family: var(--text-mono); }
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 4px; font-family: var(--text-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.badge-libre     { background: #14532d44; color: var(--libre);     border: 1px solid #14532d; }
+.badge-ocupada   { background: #78350f44; color: var(--ocupada);   border: 1px solid #78350f; }
+.badge-reservada { background: #4c1d9544; color: var(--reservada); border: 1px solid #4c1d95; }
+.badge-danada    { background: #7f1d1d44; color: var(--danada);    border: 1px solid #7f1d1d; }
+.badge-pendiente { background: #78350f44; color: var(--ocupada);   border: 1px solid #78350f; }
+.badge-activo    { background: #14532d44; color: var(--libre);     border: 1px solid #14532d; }
+.badge-eliminado { background: #1e293b;   color: var(--text-3);    border: 1px solid var(--border); }
+.react-flow__background { background: var(--bg-0); }
+.react-flow__controls button { background: var(--bg-3); border: 1px solid var(--border-2); color: var(--text-2); }
+.react-flow__controls button:hover { background: var(--bg-4); color: var(--text-1); }
+.react-flow__minimap { background: var(--bg-2); border: 1px solid var(--border); }
