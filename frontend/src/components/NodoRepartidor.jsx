@@ -18,8 +18,8 @@ export default function NodoRepartidor({ data, selected }) {
       <Handle id="right-t"  type="target" position={Position.Right}  style={handleStyle} />
 
       <div style={{
-        width: 180, padding: '8px 12px',
-        background: selected ? 'var(--bg-4)' : 'var(--bg-2)',
+        width: 128, padding: '6px 9px',
+        background: selected ? 'var(--bg-4)' : 'var(--bg-3)',
         border: `1.5px solid ${selected ? borderColor : 'var(--border-2)'}`,
         borderLeft: `3px solid ${borderColor}`,
         borderRadius: 6,
@@ -29,18 +29,21 @@ export default function NodoRepartidor({ data, selected }) {
       }}>
         <div style={{
           fontFamily: 'var(--text-mono)', fontWeight: 600,
-          fontSize: 13, color: 'var(--text-1)',
+          fontSize: 11, color: 'var(--text-1)',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {codigo}
         </div>
         {estacion_nombre && (
-          <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+          <div style={{
+            fontSize: 9, color: 'var(--text-3)', marginTop: 2,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
             {estacion_nombre}{linea ? ` · ${linea}` : ''}
           </div>
         )}
         {!verificado && (
-          <div style={{ marginTop: 4, fontSize: 10, color: 'var(--ocupada)', fontFamily: 'var(--text-mono)' }}>
+          <div style={{ marginTop: 3, fontSize: 8, color: 'var(--ocupada)', fontFamily: 'var(--text-mono)' }}>
             provisional
           </div>
         )}
@@ -48,4 +51,3 @@ export default function NodoRepartidor({ data, selected }) {
     </>
   )
 }
-

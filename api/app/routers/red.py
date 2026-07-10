@@ -34,6 +34,7 @@ async def get_grafo():
                 t.num_fibras,
                 t.longitud_otdr_m,
                 ca.codigo AS cable_codigo,
+                ca.descripcion AS cable_descripcion,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'libre')     AS fibras_libres,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'ocupada')   AS fibras_ocupadas,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'reservada') AS fibras_reservadas,
@@ -42,7 +43,7 @@ async def get_grafo():
             JOIN nodus.cable ca ON ca.id = t.cable_id
             LEFT JOIN nodus.v_estado_fibra vf ON vf.tramo_id = t.id
             GROUP BY t.id, t.codigo, t.rep_extremo_a, t.rep_extremo_b,
-                     t.num_fibras, t.longitud_otdr_m, ca.codigo
+                     t.num_fibras, t.longitud_otdr_m, ca.codigo, ca.descripcion
             ORDER BY t.codigo
         """)
 
@@ -55,7 +56,10 @@ async def get_grafo():
 @router.get("/red/grafo-estaciones")
 async def get_grafo_estaciones():
     """
-    Vista de red a nivel de instalación.
+    Vista de red a nivel de instalación (Vista Agrupada).
+    Usa ruta_instalaciones de cada cable para repartir sus fibras
+    entre todos los segmentos intermedios, incluyendo instalaciones
+    de paso sin repartidor propio en ese cable concreto.
     """
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -95,6 +99,7 @@ async def get_grafo_estaciones():
                 JOIN nodus.ubicacion u ON u.id = r.ubicacion_id
                 WHERE u.instalacion_id = ANY($1::text[])
             """, ruta_completa)
+
             rep_ids = {r["instalacion_id"] for r in instalaciones_con_rep}
 
             ruta = [e for e in ruta_completa if e in rep_ids]

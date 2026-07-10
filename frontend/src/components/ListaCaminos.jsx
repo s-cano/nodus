@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getCaminos, getCaminoDiagram } from '../api.js'
-import DiagramaCamino from './DiagramaCamino.jsx'
+import DiagramaCaminoFlow from './DiagramaCaminoFlow.jsx'
 import { CheckCircle, Clock, XCircle, Search } from 'lucide-react'
 
 const ESTADO_COL = {
@@ -63,17 +63,6 @@ export default function ListaCaminos() {
   const [search,   setSearch]   = useState('')
   const [filtroE,  setFiltroE]  = useState('todos')
   const [error,    setError]    = useState(null)
-
-  // Measure right panel width so DiagramaCamino can compute rows
-  const panelRef   = useRef(null)
-  const [panelW, setPanelW] = useState(900)
-  useEffect(() => {
-    if (!panelRef.current) return
-    const ro = new ResizeObserver(([e]) => setPanelW(e.contentRect.width))
-    ro.observe(panelRef.current)
-    setPanelW(panelRef.current.clientWidth)
-    return () => ro.disconnect()
-  }, [])
 
   useEffect(() => {
     getCaminos().then(setCaminos).catch(e => setError(e.message))
@@ -172,91 +161,80 @@ export default function ListaCaminos() {
         </div>
       </div>
 
-      {/* ── Right panel: centrado horizontal y vertical ── */}
+      {/* ── Right panel: ocupa toda la altura, igual que en Cables ── */}
       <div
-        ref={panelRef}
         style={{
-          flex: 1, overflow: 'auto',
+          flex: 1, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          padding: 32, background: 'var(--bg-0)',
+          background: 'var(--bg-0)',
         }}
       >
         {!selected && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, color: 'var(--text-3)',
+          }}>
             Selecciona un camino para ver su diagrama
           </div>
         )}
 
         {selected && (
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', gap: 16,
-          }}>
-            {/* Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center',
-              gap: 10, flexWrap: 'wrap', justifyContent: 'center',
-            }}>
-              <span style={{ fontFamily: 'var(--text-mono)', fontSize: 13, color: 'var(--cyan)' }}>
-                {selected.codigo}
-              </span>
-              <span style={{ fontSize: 13, color: 'var(--text-1)' }}>
-                {selected.descripcion}
-              </span>
-              {(() => {
-                const col  = ESTADO_COL[selected.estado] || 'var(--text-3)'
-                const Icon = ESTADO_ICON[selected.estado] || Clock
-                return (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '2px 10px', borderRadius: 4,
-                    border: `0.5px solid ${col}55`,
-                    background: col + '18',
-                  }}>
-                    <Icon size={11} color={col} />
-                    <span style={{
-                      fontSize: 9, color: col,
-                      fontFamily: 'var(--text-mono)',
-                      textTransform: 'uppercase', letterSpacing: '0.07em',
-                    }}>{selected.estado}</span>
-                  </div>
-                )
-              })()}
-            </div>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
-            {/* Diagram card — ajustado al contenido */}
-            <div style={{
-              background: 'var(--bg-1)',
-              border: '1px solid var(--border)',
-              borderRadius: 10, padding: 24,
-              display: 'inline-block',  /* wraps to content width */
-            }}>
-              {loading && (
-                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
-                  Cargando diagrama…
-                </p>
-              )}
-              {error && (
-                <p style={{ fontSize: 12, color: 'var(--danada)', margin: 0 }}>
-                  Error: {error}
-                </p>
-              )}
-              {!loading && !error && diagram && (
-                <DiagramaCamino
-                  camino={diagram}
-                  containerWidth={Math.max(400, panelW - 112)}
-                />
-              )}
-            </div>
-
-            {diagram?.notas && (
-              <p style={{
-                fontSize: 11, color: 'var(--text-3)',
-                fontStyle: 'italic', margin: 0, textAlign: 'center',
+            {/* Header: línea 1 = código + estado + descripción. Línea 2 = notas del camino. */}
+            <div style={{ textAlign: 'center', padding: '16px 16px 0', flexShrink: 0 }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: 10, flexWrap: 'wrap',
               }}>
-                {diagram.notas}
+                <span style={{ fontFamily: 'var(--text-mono)', fontSize: 13, color: 'var(--cyan)' }}>
+                  {selected.codigo}
+                </span>
+                {(() => {
+                  const col  = ESTADO_COL[selected.estado] || 'var(--text-3)'
+                  const Icon = ESTADO_ICON[selected.estado] || Clock
+                  return (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '2px 10px', borderRadius: 4,
+                      border: `0.5px solid ${col}55`,
+                      background: col + '18',
+                    }}>
+                      <Icon size={11} color={col} />
+                      <span style={{
+                        fontSize: 9, color: col,
+                        fontFamily: 'var(--text-mono)',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                      }}>{selected.estado}</span>
+                    </div>
+                  )
+                })()}
+                <span style={{ fontSize: 13, color: 'var(--text-1)' }}>
+                  {selected.descripcion}
+                </span>
+              </div>
+              {diagram?.notas && (
+                <p style={{
+                  fontSize: 11, color: 'var(--text-3)',
+                  fontStyle: 'italic', margin: '4px 0 0',
+                }}>
+                  {diagram.notas}
+                </p>
+              )}
+            </div>
+
+            {loading && (
+              <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '16px 0 0', textAlign: 'center' }}>
+                Cargando diagrama…
               </p>
+            )}
+            {error && (
+              <p style={{ fontSize: 12, color: 'var(--danada)', margin: '16px 0 0', textAlign: 'center' }}>
+                Error: {error}
+              </p>
+            )}
+            {!loading && !error && diagram && (
+              <DiagramaCaminoFlow camino={diagram} />
             )}
           </div>
         )}
