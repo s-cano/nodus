@@ -68,28 +68,33 @@ export default function FichaRepartidor({ id }) {
   if (!data)  return <p style={{ padding:16, color:'var(--text-3)', fontSize:12 }}>Cargando…</p>
 
   const { codigo, verificado, tipo_conector, pulido, notas,
-          estacion_nombre, linea, ubicacion_nombre, puertos, tramos } = data
+          estacion_nombre, linea, ubicacion_nombre, puertos } = data
 
-  const tramoMap = {}
-  for (const t of tramos) tramoMap[t.id] = t
-
-  const puertosPorTramo = {}
-  const sinTramo = []
+  // Agrupar puertos por REPARTIDOR DESTINO (no por tramo): si dos tramos
+  // distintos comparten el mismo origen/destino, sus puertos aparecen
+  // juntos en un único bloque.
+  const gruposPorDestino = {}
+  const sinDestino = []
   for (const p of puertos) {
-    if (p.tramo_id) {
-      if (!puertosPorTramo[p.tramo_id]) puertosPorTramo[p.tramo_id] = []
-      puertosPorTramo[p.tramo_id].push(p)
+    if (p.otro_rep_codigo) {
+      const key = p.otro_rep_codigo
+      if (!gruposPorDestino[key]) {
+        gruposPorDestino[key] = {
+          rep_codigo: p.otro_rep_codigo,
+          inst_nombre: p.otro_inst_nombre,
+          puertos: [],
+        }
+      }
+      gruposPorDestino[key].puertos.push(p)
     } else {
-      sinTramo.push(p)
+      sinDestino.push(p)
     }
   }
 
-  // Ordenar grupos de tramos por el puerto más bajo que contienen
-  const tramosOrdenados = [...tramos].sort((a, b) => {
-    const minA = Math.min(...(puertosPorTramo[a.id] || [{ identificador: 9999 }])
-      .map(p => parseInt(p.identificador, 10)))
-    const minB = Math.min(...(puertosPorTramo[b.id] || [{ identificador: 9999 }])
-      .map(p => parseInt(p.identificador, 10)))
+  // Ordenar grupos por el puerto local más bajo que contienen
+  const gruposOrdenados = Object.values(gruposPorDestino).sort((a, b) => {
+    const minA = Math.min(...a.puertos.map(p => parseInt(p.identificador, 10)))
+    const minB = Math.min(...b.puertos.map(p => parseInt(p.identificador, 10)))
     return minA - minB
   })
 
@@ -137,42 +142,7 @@ export default function FichaRepartidor({ id }) {
         </div>
       )}
 
-      {/* Tramos */}
-      {tramos.length > 0 && (
-        <section>
-          <h3 style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--text-mono)',
-                       textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
-            Tramos ({tramos.length})
-          </h3>
-          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-            {tramos.map(t => (
-              <div key={t.id} style={{
-                background:'var(--bg-3)', border:'1px solid var(--border)',
-                borderRadius:5, padding:'6px 10px', fontSize:12,
-              }}>
-                <div style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontFamily:'var(--text-mono)', color:'var(--cyan)',
-                                 fontSize:11 }}>{t.codigo}</span>
-                  <span style={{ color:'var(--text-3)', fontSize:11 }}>{t.num_fibras}F</span>
-                </div>
-                <div style={{ color:'var(--text-2)', marginTop:2 }}>
-                  → <span style={{ fontFamily:'var(--text-mono)' }}>{t.extremo_opuesto}</span>
-                  {t.cable_codigo && (
-                    <span style={{ color:'var(--text-3)', marginLeft:6 }}>{t.cable_codigo}</span>
-                  )}
-                </div>
-                {t.longitud_otdr_m && (
-                  <div style={{ color:'var(--text-3)', fontSize:11, marginTop:2 }}>
-                    {t.longitud_otdr_m} m
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Puertos agrupados por tramo, ordenados por puerto más bajo */}
+      {/* Puertos agrupados por repartidor destino, ordenados por puerto más bajo */}
       {puertos.length > 0 && (
         <section>
           <h3 style={{ fontSize:11, color:'var(--text-3)', fontFamily:'var(--text-mono)',
@@ -180,15 +150,13 @@ export default function FichaRepartidor({ id }) {
             Puertos ({puertos.length})
           </h3>
 
-          {tramosOrdenados.map(t => {
-            const pts = sortPuertos(puertosPorTramo[t.id] || [])
-            if (!pts.length) return null
-            const instNombre = pts[0]?.otro_inst_nombre
-            const label = instNombre
-              ? `${instNombre} · ${t.extremo_opuesto}`
-              : t.extremo_opuesto
+          {gruposOrdenados.map(g => {
+            const pts = sortPuertos(g.puertos)
+            const label = g.inst_nombre
+              ? `${g.inst_nombre} · ${g.rep_codigo}`
+              : g.rep_codigo
             return (
-              <div key={t.id} style={{ marginBottom:8 }}>
+              <div key={g.rep_codigo} style={{ marginBottom:8 }}>
                 <div style={{
                   fontSize:10, color:'var(--text-3)', fontFamily:'var(--text-mono)',
                   padding:'3px 8px', background:'var(--bg-0)',
@@ -196,7 +164,7 @@ export default function FichaRepartidor({ id }) {
                   display:'flex', justifyContent:'space-between',
                 }}>
                   <span>{label}</span>
-                  <span>{pts.length}F · {t.cable_codigo}</span>
+                  <span>{pts.length}F</span>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
                   {pts.map(p => (
@@ -228,17 +196,17 @@ export default function FichaRepartidor({ id }) {
             )
           })}
 
-          {/* Puertos sin tramo */}
-          {sinTramo.length > 0 && (
+          {/* Puertos sin repartidor destino asociado (sin fibra asignada) */}
+          {sinDestino.length > 0 && (
             <div style={{ marginBottom:8 }}>
               <div style={{
                 fontSize:10, color:'var(--text-3)', fontFamily:'var(--text-mono)',
                 padding:'3px 8px', background:'var(--bg-0)',
                 borderLeft:'2px solid var(--border)', marginBottom:2,
               }}>
-                Sin tramo
+                Sin conexión
               </div>
-              {sortPuertos(sinTramo).map(p => (
+              {sortPuertos(sinDestino).map(p => (
                 <div key={p.id} style={{
                   display:'flex', alignItems:'center', gap:6,
                   padding:'3px 8px', borderRadius:3,

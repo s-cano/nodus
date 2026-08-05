@@ -10,14 +10,14 @@ import NodoRepartidor from './NodoRepartidor.jsx'
 import FloatingEdge from './FloatingEdge.jsx'
 import PanelDetalle from './PanelDetalle.jsx'
 
-const NODE_W = 128
-const NODE_H = 58
+const NODE_W = 180
+const NODE_H = 64
 const STORAGE_PREFIX = 'nodus_cable_layout_v2_'
 
 function applyDagreLayout(nodos, aristas) {
   const g = new dagre.graphlib.Graph()
   g.setDefaultEdgeLabel(() => ({}))
-  g.setGraph({ rankdir: 'LR', ranksep: 120, nodesep: 40 })
+  g.setGraph({ rankdir: 'LR', ranksep: 140, nodesep: 50 })
   nodos.forEach(n => g.setNode(n.id, { width: NODE_W, height: NODE_H }))
   aristas.forEach(e => g.setEdge(e.source, e.target))
   dagre.layout(g)
@@ -48,6 +48,44 @@ function colorArista({ fibras_libres, fibras_danadas, num_fibras }) {
   return '#ef4444'
 }
 
+// Agrupa las aristas (tramos) por par de repartidores, sin importar el
+// orden origen/destino, y suma sus fibras en una única arista visual.
+// Así, si dos repartidores están unidos por más de un tramo (p.ej. un
+// corte/reinserción intermedio), se muestran como una sola línea con el
+// total sumado — igual que hace la vista principal de Estaciones — en
+// vez de dibujar dos curvas separadas y solapadas.
+function agruparAristasPorPar(aristasFiltradas, todosNodos) {
+  const nodoPorId = {}
+  todosNodos.forEach(n => { nodoPorId[String(n.id)] = n })
+
+  const grupos = {}
+  aristasFiltradas.forEach(a => {
+    const key = [String(a.rep_extremo_a), String(a.rep_extremo_b)].sort().join('__')
+    if (!grupos[key]) grupos[key] = []
+    grupos[key].push(a)
+  })
+
+  const suma = (grupo, campo) => grupo.reduce((acc, a) => acc + (a[campo] || 0), 0)
+
+  return Object.values(grupos).map(grupo => {
+    const base = grupo[0]
+    return {
+      id: grupo.map(a => a.id).join('+'),
+      source: String(base.rep_extremo_a),
+      target: String(base.rep_extremo_b),
+      rep_a_codigo: nodoPorId[String(base.rep_extremo_a)]?.codigo,
+      rep_b_codigo: nodoPorId[String(base.rep_extremo_b)]?.codigo,
+      cable_codigo:      base.cable_codigo,
+      num_fibras:        suma(grupo, 'num_fibras'),
+      fibras_libres:     suma(grupo, 'fibras_libres'),
+      fibras_ocupadas:   suma(grupo, 'fibras_ocupadas'),
+      fibras_reservadas: suma(grupo, 'fibras_reservadas'),
+      fibras_danadas:    suma(grupo, 'fibras_danadas'),
+      _tramos: grupo,
+    }
+  })
+}
+
 const nodeTypes = { repartidor: NodoRepartidor }
 const edgeTypes = { floating: FloatingEdge }
 
@@ -69,12 +107,13 @@ function GrafoCable({ todosNodos, todasAristas, cable, seleccion, setSeleccion, 
         position: saved?.[String(n.id)] ?? { x: 0, y: 0 },
         data: n, draggable: true,
       }))
-    const rfEdges = aristasFiltradas.map(a => {
-      const color = colorArista(a)
+    const grupos = agruparAristasPorPar(aristasFiltradas, todosNodos)
+    const rfEdges = grupos.map(g => {
+      const color = colorArista(g)
       return {
-        id: String(a.id), source: String(a.rep_extremo_a),
-        target: String(a.rep_extremo_b), type: 'floating', data: a,
-        label: `${a.fibras_libres ?? '?'}L / ${a.num_fibras}`,
+        id: g.id, source: g.source, target: g.target,
+        type: 'floating', data: g,
+        label: `${g.fibras_libres ?? '?'}L / ${g.num_fibras}`,
         labelStyle:   { fill: '#94a3b8', fontFamily: 'JetBrains Mono', fontSize: 10 },
         labelBgStyle: { fill: '#0d1321', fillOpacity: 0.85 },
         style: { stroke: color, strokeWidth: 2 },
@@ -110,95 +149,59 @@ function GrafoCable({ todosNodos, todasAristas, cable, seleccion, setSeleccion, 
   }, [setSeleccion])
 
   const onNodeClick  = useCallback(() => {}, [])
-  const onEdgeClick  = useCallback((_, edge) => setSeleccion({ tipo: 'arista', id: edge.data.id }), [setSeleccion])
+  const onEdgeClick  = useCallback((_, edge) => setSeleccion({ tipo: 'arista', data: edge.data }), [setSeleccion])
   const onPaneClick  = useCallback(() => setSeleccion(null), [setSeleccion])
 
-  // Descripción del cable activo: viene ya en cada arista (cable_descripcion),
-  // basta con leerla de la primera que encontremos.
-  const cableInfo = todasAristas.find(a => a.cable_codigo === cable)
-  const cableDescripcion = cableInfo?.cable_descripcion
-
   return (
-    <div style={{ height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position:'relative', height:'100%' }}>
+      <ReactFlow
+        nodes={nodes} edges={edges}
+        onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick} onSelectionChange={onSelectionChange}
+        onEdgeClick={onEdgeClick} onPaneClick={onPaneClick}
+        nodeTypes={nodeTypes} edgeTypes={edgeTypes}
+        fitView fitViewOptions={{ padding:0.2 }}
+        minZoom={0.2} maxZoom={2}
+        nodesDraggable={true} nodesConnectable={false}
+        multiSelectionKeyCode="Control"
+      >
+        <Background color="var(--border)" gap={24} size={1} />
+        <Controls style={{ bottom:20, left:20 }} />
+        <MiniMap
+          nodeColor={n => n.data.verificado ? '#0ea5e920' : '#f59e0b20'}
+          nodeStrokeColor={n => n.data.verificado ? 'var(--cyan)' : 'var(--ocupada)'}
+          nodeStrokeWidth={2}
+          style={{ bottom:20, right: seleccion ? 380 : 20 }}
+        />
+      </ReactFlow>
 
-      {/* ── Cabecera: fuera del marco, centrada, mismo patrón que la ficha de Caminos ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 10, flexWrap: 'wrap', padding: '16px 16px 0',
-      }}>
-        <span style={{ fontFamily: 'var(--text-mono)', fontSize: 13, color: 'var(--cyan)' }}>
-          {cable}
-        </span>
-        {cableDescripcion && (
-          <span style={{ fontSize: 13, color: 'var(--text-1)' }}>
-            {cableDescripcion}
-          </span>
-        )}
-      </div>
-
-      {/* ── Marco: el lienzo ya no ocupa el 100% del panel a bordes vivos.
-          Queda inscrito en una tarjeta (mismo lenguaje visual que la
-          tarjeta del diagrama de Caminos), separada del resto por un
-          margen constante, con esquinas redondeadas y fondo propio. ── */}
-      <div style={{ flex: 1, minHeight: 0, boxSizing: 'border-box', padding: 16 }}>
-      <div style={{
-        position: 'relative', height: '100%',
-        border: '1px solid var(--border)', borderRadius: 12,
-        overflow: 'hidden', background: 'var(--bg-1)',
-      }}>
-        <ReactFlow
-          nodes={nodes} edges={edges}
-          onNodesChange={handleNodesChange} onEdgesChange={onEdgesChange}
-          onNodeClick={onNodeClick} onSelectionChange={onSelectionChange}
-          onEdgeClick={onEdgeClick} onPaneClick={onPaneClick}
-          nodeTypes={nodeTypes} edgeTypes={edgeTypes}
-          fitView fitViewOptions={{ padding: 0.25 }}
-          minZoom={0.2} maxZoom={2}
-          nodesDraggable={true} nodesConnectable={false}
-          multiSelectionKeyCode="Control"
-        >
-          <Background
-            color="var(--border)" gap={24} size={1}
-            style={{ backgroundColor: 'var(--bg-2)' }}
-          />
-          <Controls style={{ bottom: 16, left: 16 }} />
-          <MiniMap
-            nodeColor={n => n.data.verificado ? '#0ea5e920' : '#f59e0b20'}
-            nodeStrokeColor={n => n.data.verificado ? 'var(--cyan)' : 'var(--ocupada)'}
-            nodeStrokeWidth={2}
-            style={{ bottom: 16, right: seleccion ? 380 : 16 }}
-          />
-        </ReactFlow>
-
-        {/* Botones flotantes */}
-        <div style={{ position: 'absolute', top: 12, right: seleccion ? 392 : 12,
-                      display: 'flex', gap: 8 }}>
-          {seleccion?.tipo === 'nodo' && onVerRepartidor && (
-            <button onClick={() => {
-              const nodo = nodes.find(n => String(n.data.id) === String(seleccion.id))
-              if (nodo) onVerRepartidor(nodo.data.estacion_id, nodo.data.id, nodo.data.estacion_nombre)
-            }}
-              style={{
-                background: 'var(--cyan)', color: '#000', border: 'none',
-                borderRadius: 6, padding: '7px 12px',
-                fontFamily: 'var(--text-mono)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              Ver instalación →
-            </button>
-          )}
-          <button onClick={resetLayout}
+      {/* Botones flotantes */}
+      <div style={{ position:'absolute', top:12, right: seleccion ? 392 : 12,
+                    display:'flex', gap:8 }}>
+        {seleccion?.tipo === 'nodo' && onVerRepartidor && (
+          <button onClick={() => {
+            const nodo = nodes.find(n => String(n.data.id) === String(seleccion.id))
+            if (nodo) onVerRepartidor(nodo.data.estacion_id, nodo.data.id, nodo.data.estacion_nombre)
+          }}
             style={{
-              background: 'var(--bg-1)', border: '1px solid var(--border)',
-              borderRadius: 6, padding: '7px 12px',
-              fontFamily: 'var(--text-mono)', fontSize: 11,
-              color: 'var(--text-3)', cursor: 'pointer',
+              background:'var(--cyan)', color:'#000', border:'none',
+              borderRadius:6, padding:'7px 12px',
+              fontFamily:'var(--text-mono)', fontSize:11, fontWeight:700, cursor:'pointer',
             }}
           >
-            ↺ Restablecer layout
+            Ver instalación →
           </button>
-        </div>
-      </div>
+        )}
+        <button onClick={resetLayout}
+          style={{
+            background:'var(--bg-1)', border:'1px solid var(--border)',
+            borderRadius:6, padding:'7px 12px',
+            fontFamily:'var(--text-mono)', fontSize:11,
+            color:'var(--text-3)', cursor:'pointer',
+          }}
+        >
+          ↺ Restablecer layout
+        </button>
       </div>
     </div>
   )
