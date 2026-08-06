@@ -34,7 +34,6 @@ async def get_grafo():
                 t.num_fibras,
                 t.longitud_otdr_m,
                 ca.codigo AS cable_codigo,
-                ca.descripcion AS cable_descripcion,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'libre')     AS fibras_libres,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'ocupada')   AS fibras_ocupadas,
                 COUNT(*) FILTER (WHERE vf.estado_logico = 'reservada') AS fibras_reservadas,
@@ -43,7 +42,7 @@ async def get_grafo():
             JOIN nodus.cable ca ON ca.id = t.cable_id
             LEFT JOIN nodus.v_estado_fibra vf ON vf.tramo_id = t.id
             GROUP BY t.id, t.codigo, t.rep_extremo_a, t.rep_extremo_b,
-                     t.num_fibras, t.longitud_otdr_m, ca.codigo, ca.descripcion
+                     t.num_fibras, t.longitud_otdr_m, ca.codigo
             ORDER BY t.codigo
         """)
 
@@ -56,10 +55,16 @@ async def get_grafo():
 @router.get("/red/grafo-estaciones")
 async def get_grafo_estaciones():
     """
-    Vista de red a nivel de instalación (Vista Agrupada).
-    Usa ruta_instalaciones de cada cable para repartir sus fibras
-    entre todos los segmentos intermedios, incluyendo instalaciones
-    de paso sin repartidor propio en ese cable concreto.
+    Vista de red a nivel de instalación (modo "agrupada").
+
+    El total de cada segmento entre dos instalaciones NO se calcula a partir
+    de cable.num_fibras_total (informativo, puede no coincidir tramo a tramo
+    en cables con corte/reinserción o anomalías de fusión parcial). Se
+    calcula sumando las fibras de los tramos que realmente cubren ese
+    segmento —directos o de paso—, igual que ya hacía /red/grafo-real para
+    pares de repartidores. Un tramo "cubre" un segmento si su rango de
+    índices en la ruta física del cable contiene al del segmento (permite
+    créditar fibras que pasan de largo por una instalación sin cortarse ahí).
     """
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -82,16 +87,16 @@ async def get_grafo_estaciones():
         """)
 
         cables = await conn.fetch("""
-            SELECT id, codigo, num_fibras_total, ruta_instalaciones
+            SELECT id, codigo, ruta_instalaciones
             FROM nodus.cable
             WHERE ruta_instalaciones IS NOT NULL AND ruta_instalaciones <> ''
         """)
 
         segmentos_map = {}
+        nombre_cache = {}
 
         for cable in cables:
             ruta_completa = [e.strip() for e in cable["ruta_instalaciones"].split(",")]
-            num_fibras_cable = cable["num_fibras_total"] or 0
 
             instalaciones_con_rep = await conn.fetch("""
                 SELECT DISTINCT u.instalacion_id
@@ -101,7 +106,6 @@ async def get_grafo_estaciones():
             """, ruta_completa)
 
             rep_ids = {r["instalacion_id"] for r in instalaciones_con_rep}
-
             ruta = [e for e in ruta_completa if e in rep_ids]
 
             if len(ruta) < 2:
@@ -139,8 +143,6 @@ async def get_grafo_estaciones():
                     ts[tid] = {}
                 ts[tid][fs["estado_logico"]] = fs["n"]
 
-            nombre_cache = {}
-
             for i in range(len(ruta) - 1):
                 ea, eb = ruta[i], ruta[i + 1]
                 key = (min(ea, eb), max(ea, eb))
@@ -150,7 +152,7 @@ async def get_grafo_estaciones():
                     continue
                 seg_lo, seg_hi = (ia, ib) if ia < ib else (ib, ia)
 
-                libres = ocupadas = danadas = con_conector = 0
+                libres = ocupadas = danadas = reservadas = 0
                 for t in tramos:
                     ta = est_idx.get(t["est_a"])
                     tb = est_idx.get(t["est_b"])
@@ -159,12 +161,16 @@ async def get_grafo_estaciones():
                     lo, hi = (ta, tb) if ta <= tb else (tb, ta)
                     if lo <= seg_lo and hi >= seg_hi:
                         st = ts.get(t["id"], {})
-                        libres       += st.get("libre",   0)
-                        ocupadas     += st.get("ocupada", 0)
-                        danadas      += st.get("danada",  0)
-                        con_conector += t["num_fibras"]
+                        libres     += st.get("libre",     0)
+                        ocupadas   += st.get("ocupada",   0)
+                        danadas    += st.get("danada",    0)
+                        reservadas += st.get("reservada", 0)
 
-                paso = max(0, num_fibras_cable - con_conector)
+                # Total real del segmento = suma de los 4 estados posibles.
+                # Nunca se usa cable.num_fibras_total: evita el desajuste
+                # cuando un cable tiene capacidades distintas por tramo
+                # (corte/reinserción, fusiones parciales, anomalías de red).
+                total_segmento = libres + ocupadas + danadas + reservadas
 
                 if key not in segmentos_map:
                     for eid in [ea, eb]:
@@ -178,27 +184,25 @@ async def get_grafo_estaciones():
                             }
                     a_id, b_id = key
                     segmentos_map[key] = {
-                        "est_a_id":            a_id,
-                        "est_b_id":            b_id,
-                        "est_a_nombre":        nombre_cache[a_id]["nombre"],
-                        "est_b_nombre":        nombre_cache[b_id]["nombre"],
-                        "cables":              [],
-                        "fibras_cable":        0,
-                        "fibras_con_conector": 0,
-                        "fibras_libres":       0,
-                        "fibras_ocupadas":     0,
-                        "fibras_danadas":      0,
-                        "fibras_paso":         0,
+                        "est_a_id":          a_id,
+                        "est_b_id":          b_id,
+                        "est_a_nombre":      nombre_cache[a_id]["nombre"],
+                        "est_b_nombre":      nombre_cache[b_id]["nombre"],
+                        "cables":            [],
+                        "fibras_total":      0,
+                        "fibras_libres":     0,
+                        "fibras_ocupadas":   0,
+                        "fibras_reservadas": 0,
+                        "fibras_danadas":    0,
                     }
 
                 seg = segmentos_map[key]
                 seg["cables"].append(cable["codigo"])
-                seg["fibras_cable"]        += num_fibras_cable
-                seg["fibras_con_conector"] += con_conector
-                seg["fibras_libres"]       += libres
-                seg["fibras_ocupadas"]     += ocupadas
-                seg["fibras_danadas"]      += danadas
-                seg["fibras_paso"]         += paso
+                seg["fibras_total"]      += total_segmento
+                seg["fibras_libres"]     += libres
+                seg["fibras_ocupadas"]   += ocupadas
+                seg["fibras_reservadas"] += reservadas
+                seg["fibras_danadas"]    += danadas
 
     return {
         "nodos":   [dict(e) for e in instalaciones],
@@ -211,6 +215,13 @@ async def get_grafo_real():
     """
     Vista Real: nodos = instalaciones con tramos hacia otras instalaciones.
     Aristas = pares de instalaciones con tramos directos entre sus repartidores.
+
+    A diferencia de /red/grafo-estaciones, aquí solo cuentan tramos cuyos
+    dos extremos están exactamente en las dos instalaciones del par (sin
+    crédito por paso). fibras_total ya se calculaba como SUM(t.num_fibras)
+    de esos tramos reales — coherente con el nuevo criterio de
+    /red/grafo-estaciones. Único cambio: se añade fibras_reservadas, que
+    antes no se rastreaba (se perdía silenciosamente).
     """
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -225,6 +236,7 @@ async def get_grafo_real():
                     t.rep_extremo_b,
                     COUNT(*) FILTER (WHERE vf.estado_logico = 'libre')          AS libres,
                     COUNT(*) FILTER (WHERE vf.estado_logico = 'ocupada')        AS ocupadas,
+                    COUNT(*) FILTER (WHERE vf.estado_logico = 'reservada')      AS reservadas,
                     COUNT(*) FILTER (WHERE vf.estado_logico = 'danada')         AS danadas
                 FROM nodus.tramo t
                 LEFT JOIN nodus.v_estado_fibra vf ON vf.tramo_id = t.id
@@ -239,6 +251,7 @@ async def get_grafo_real():
                 SUM(ts.num_fibras)         AS fibras_total,
                 SUM(ts.libres)             AS fibras_libres,
                 SUM(ts.ocupadas)           AS fibras_ocupadas,
+                SUM(ts.reservadas)         AS fibras_reservadas,
                 SUM(ts.danadas)            AS fibras_danadas
             FROM tramo_stats ts
             JOIN nodus.cable      ca ON ca.id = ts.cable_id

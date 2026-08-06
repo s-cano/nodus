@@ -42,9 +42,11 @@ function saveLayout(nodes, modo) {
   } catch {}
 }
 
-function colorArco({ fibras_libres, fibras_danadas, fibras_total, fibras_cable, _modo }) {
+// fibras_total ya es el mismo campo en los dos modos (suma real de tramos
+// que cubren el segmento, directos o de paso — nunca cable.num_fibras_total).
+function colorArco({ fibras_libres, fibras_danadas, fibras_total }) {
   const danadas = fibras_danadas || 0
-  const total   = _modo === 'real' ? (fibras_total || 0) : (fibras_cable || 0)
+  const total   = fibras_total || 0
   if (danadas > 0) return '#ef4444'
   if (!total)      return '#1e2d45'
   const pct = (fibras_libres || 0) / total
@@ -97,7 +99,7 @@ export default function MapaEstaciones({ onVerDetalle }) {
     const rfEdges = aristas.map(a => {
       const data_arco = { ...a, _modo: modo }
       const color  = colorArco(data_arco)
-      const total  = modo === 'real' ? (a.fibras_total || 0) : (a.fibras_cable || 0)
+      const total  = a.fibras_total || 0
       const idA    = modo === 'real' ? a.inst_a_id : a.est_a_id
       const idB    = modo === 'real' ? a.inst_b_id : a.est_b_id
       return {
@@ -151,7 +153,7 @@ export default function MapaEstaciones({ onVerDetalle }) {
   }, [])
 
   const onNodeClick = useCallback(() => {}, [])
-  const onEdgeClick = useCallback((_, edge) => setSeleccion({ tipo: 'segmento',    data: edge.data }), [])
+  const onEdgeClick = useCallback((_, edge) => setSeleccion({ tipo: 'segmento', data: edge.data }), [])
   const onPaneClick = useCallback(() => setSeleccion(null), [])
 
   if (cargando) return (
@@ -315,12 +317,15 @@ function PanelInstalacion({ data, onCerrar }) {
 }
 
 function PanelSegmento({ data, onCerrar }) {
-  const modo     = data._modo || 'agrupada'
-  const esReal   = modo === 'real'
-  const nombreA  = esReal ? data.inst_a_nombre : data.est_a_nombre
-  const nombreB  = esReal ? data.inst_b_nombre : data.est_b_nombre
-  const total    = esReal ? (data.fibras_total || 0) : (data.fibras_cable || 0)
-  const labelTotal = esReal ? 'Total tramos' : 'Total cable'
+  const modo        = data._modo || 'agrupada'
+  const esReal       = modo === 'real'
+  const nombreA      = esReal ? data.inst_a_nombre : data.est_a_nombre
+  const nombreB      = esReal ? data.inst_b_nombre : data.est_b_nombre
+  // fibras_total: mismo campo en los dos modos. En 'real' solo cuenta tramos
+  // directos entre los dos repartidores exactos; en 'agrupada' incluye
+  // también tramos de paso que atraviesan la instalación sin cortarse ahí.
+  const total        = data.fibras_total || 0
+  const labelTotal    = esReal ? 'Total tramos directos' : 'Total del segmento'
 
   return (
     <Panel onCerrar={onCerrar}>
@@ -334,17 +339,12 @@ function PanelSegmento({ data, onCerrar }) {
       </div>
       <Sep />
       <Row label={labelTotal}      value={total} />
-      <Row label="  · Libres"      value={data.fibras_libres   || 0} color="var(--libre)" />
-      <Row label="  · Ocupadas"    value={data.fibras_ocupadas || 0} color="var(--ocupada)" />
+      <Row label="  · Libres"      value={data.fibras_libres     || 0} color="var(--libre)" />
+      <Row label="  · Ocupadas"    value={data.fibras_ocupadas   || 0} color="var(--ocupada)" />
+      {(data.fibras_reservadas || 0) > 0 &&
+        <Row label="  · Reservadas" value={data.fibras_reservadas}     color="var(--reservada)" />}
       {(data.fibras_danadas || 0) > 0 &&
-        <Row label="  · Dañadas"   value={data.fibras_danadas}       color="var(--danada)" />}
-      {!esReal && (data.fibras_paso || 0) > 0 && (
-        <>
-          <Sep />
-          <Row label="De paso (sin conector)" value={data.fibras_paso} color="var(--text-3)" />
-          <Note>Fibras físicamente presentes pero sin fusión en esta sección.</Note>
-        </>
-      )}
+        <Row label="  · Dañadas"   value={data.fibras_danadas}         color="var(--danada)" />}
     </Panel>
   )
 }
@@ -385,13 +385,5 @@ function Row({ label, value, color }) {
       <span style={{ color:'var(--text-3)' }}>{label}</span>
       <span style={{ color: color||'var(--text-1)', fontWeight:700 }}>{value}</span>
     </div>
-  )
-}
-function Note({ children }) {
-  return (
-    <div style={{
-      fontSize:10, color:'var(--text-3)', lineHeight:1.5, fontStyle:'italic',
-      borderLeft:'2px solid var(--border)', paddingLeft:8,
-    }}>{children}</div>
   )
 }

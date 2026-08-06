@@ -15,13 +15,19 @@ const TIPO_LABEL = {
   oficina:     'OFICINA',
 }
 
+// NOTA: fibras_total/fibras_libres/fibras_ocupadas/fibras_danadas no los
+// envía todavía ningún endpoint a nivel de nodo (get_grafo_estaciones y
+// get_grafo_real solo devuelven id/nombre/tipo/linea/num_repartidores por
+// instalación) — la barra de abajo queda inerte hasta que se agreguen esos
+// campos por nodo. Se mantiene el nombre fibras_total por coherencia con
+// el campo ya usado a nivel de arista.
 export default function NodoInstalacion({ data, selected }) {
   const { nombre, tipo = 'estacion', linea, num_repartidores,
-          fibras_cable = 0, fibras_libres = 0,
+          fibras_total = 0, fibras_libres = 0,
           fibras_ocupadas = 0, fibras_danadas = 0 } = data
 
   const ts = TIPO_STYLES[tipo] || TIPO_STYLES.estacion
-  const pctLibre = fibras_cable > 0 ? fibras_libres / fibras_cable : 1
+  const pctLibre = fibras_total > 0 ? fibras_libres / fibras_total : 1
 
   const borderColor = selected
     ? 'white'
@@ -66,7 +72,7 @@ export default function NodoInstalacion({ data, selected }) {
 
       {/* Badges: tipo + linea + repartidores */}
       <div style={{
-        display: 'flex', gap: 5, marginBottom: fibras_cable > 0 ? 6 : 0,
+        display: 'flex', gap: 5, marginBottom: fibras_total > 0 ? 6 : 0,
         fontSize: 9, fontFamily: 'var(--text-mono)', flexWrap: 'wrap',
       }}>
 
@@ -84,20 +90,20 @@ export default function NodoInstalacion({ data, selected }) {
       </div>
 
       {/* Barra de fibras (solo si hay datos) */}
-      {fibras_cable > 0 && (
+      {fibras_total > 0 && (
         <>
           <div style={{
             height: 4, background: 'var(--bg-0)', borderRadius: 2,
             overflow: 'hidden', display: 'flex', marginBottom: 4,
           }}>
             {fibras_ocupadas > 0 && (
-              <div style={{ width: `${(fibras_ocupadas/fibras_cable)*100}%`, background: 'var(--ocupada)' }} />
+              <div style={{ width: `${(fibras_ocupadas/fibras_total)*100}%`, background: 'var(--ocupada)' }} />
             )}
             {fibras_danadas > 0 && (
-              <div style={{ width: `${(fibras_danadas/fibras_cable)*100}%`, background: 'var(--danada)' }} />
+              <div style={{ width: `${(fibras_danadas/fibras_total)*100}%`, background: 'var(--danada)' }} />
             )}
             {fibras_libres > 0 && (
-              <div style={{ width: `${(fibras_libres/fibras_cable)*100}%`, background: 'var(--libre)' }} />
+              <div style={{ width: `${(fibras_libres/fibras_total)*100}%`, background: 'var(--libre)' }} />
             )}
           </div>
           <div style={{
@@ -109,11 +115,10 @@ export default function NodoInstalacion({ data, selected }) {
             {fibras_danadas > 0 && (
               <span style={{ color: 'var(--danada)' }}>{fibras_danadas}D</span>
             )}
-            <span>/{fibras_cable}</span>
+            <span>/{fibras_total}</span>
           </div>
         </>
       )}
     </div>
   )
 }
-
