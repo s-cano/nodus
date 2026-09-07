@@ -1,5 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
+  /* ── Paleta oscura (por defecto) ── */
   --bg-0: #080c14; --bg-1: #0d1321; --bg-2: #111827; --bg-3: #1a2235; --bg-4: #243048;
   --border: #1e2d45; --border-2: #2a3f5f;
   --text-1: #e2e8f0; --text-2: #94a3b8; --text-3: #64748b;
@@ -7,8 +9,52 @@
   --cyan: #0ea5e9; --cyan-dim: #0369a1;
   --libre: #22c55e; --ocupada: #f59e0b; --reservada: #8b5cf6; --danada: #ef4444;
   --node-verified: #0ea5e9; --node-provisional: #f59e0b;
+  --tipo-subestacion: #f59e0b; --tipo-taller: #a78bfa; --tipo-oficina: #f472b6;
+  --estado-bg-activo: #0a1a0a; --estado-bg-pendiente: #1a1000; --estado-bg-eliminado: #1a0a0a;
+  --badge-eliminado-bg: #1e293b;
+  --edge-label-bg: #0d1321; --edge-label-text: #94a3b8;
+  --conexion-equipo: #c8cdd4; --conexion-repartidor: #c8a96e;
+  --bg-header: #0d1321;
+  --header-text-1: #e2e8f0; --header-text-2: #94a3b8; --header-text-3: #64748b;
+  --header-cyan: #0ea5e9; --header-bg-chip: #080c14; --header-bg-raised: #111827;
+  --header-border: #1e2d45;
+  color-scheme: dark;
 }
-html, body, #root { height: 100%; font-family: 'IBM Plex Sans', sans-serif; background: var(--bg-0); color: var(--text-1); font-size: 14px; line-height: 1.5; }
+
+[data-theme="light"] {
+  /* ── Paleta clara "con cuerpo" — el usuario probó variantes casi-blancas
+     y no funcionaban ("todo muy blanco no funciona"). Aquí se invierte el
+     planteamiento: en vez de fondo claro + texto oscuro, fondo azul con
+     cuerpo real + texto claro + acentos brillantes, exactamente el mismo
+     mecanismo de contraste que el modo noche (fondo apagado, acentos
+     saturados) pero con identidad azul en vez de negro neutro. Cabecera
+     y laterales/estaciones quedan igual de oscuros (mismo "peso" visual);
+     el lienzo es un azul medio con presencia, ni pastel ni blanco. ── */
+  --bg-0: #345678; --bg-1: #1c3355; --bg-2: #2c4a70; --bg-3: #16283f; --bg-4: #0e1c2e;
+  --border: #8fb3d6; --border-2: #6690b8;
+  --text-1: #eef4fa; --text-2: #c2d5e8; --text-3: #a3b8cf;
+  --cyan: #38bdf8; --cyan-dim: #0ea5e9;
+  --libre: #4ade80; --ocupada: #fbbf24; --reservada: #c4b5fd; --danada: #f9a8a8;
+  --node-verified: #38bdf8; --node-provisional: #fbbf24;
+  --tipo-subestacion: #fbbf24; --tipo-taller: #c4b5fd; --tipo-oficina: #f9a8d4;
+  --estado-bg-activo: #1f3d2a; --estado-bg-pendiente: #3d3018; --estado-bg-eliminado: #3d2020;
+  --badge-eliminado-bg: #2c4a70;
+  --edge-label-bg: #1c3355; --edge-label-text: #c2d5e8;
+  --conexion-equipo: #c2d5e8; --conexion-repartidor: #e0b975;
+  /* Cabecera: mismo tono que antes, ahora en línea con el resto en vez de
+     ser la única pieza oscura. */
+  --bg-header: #182b45;
+  --header-text-1: #eaf2fa; --header-text-2: #c3d6ea; --header-text-3: #93a8c2;
+  --header-cyan: #5fc9ea; --header-bg-chip: #0f2039; --header-bg-raised: #24405f;
+  --header-border: #3f6089;
+  color-scheme: light;
+}
+
+html, body, #root {
+  height: 100%; font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg-0); color: var(--text-1); font-size: 14px; line-height: 1.5;
+  transition: background 0.15s ease, color 0.15s ease;
+}
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-1); }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
@@ -20,7 +66,13 @@ html, body, #root { height: 100%; font-family: 'IBM Plex Sans', sans-serif; back
 .badge-danada    { background: #7f1d1d44; color: var(--danada);    border: 1px solid #7f1d1d; }
 .badge-pendiente { background: #78350f44; color: var(--ocupada);   border: 1px solid #78350f; }
 .badge-activo    { background: #14532d44; color: var(--libre);     border: 1px solid #14532d; }
-.badge-eliminado { background: #1e293b;   color: var(--text-3);    border: 1px solid var(--border); }
+.badge-eliminado { background: var(--badge-eliminado-bg); color: var(--text-3); border: 1px solid var(--border); }
+[data-theme="light"] .badge-libre     { background: #1f3d2a; border-color: #2f5c3f; }
+[data-theme="light"] .badge-ocupada   { background: #3d3018; border-color: #5c4a26; }
+[data-theme="light"] .badge-reservada { background: #322257; border-color: #4a3480; }
+[data-theme="light"] .badge-danada    { background: #3d2020; border-color: #5c3030; }
+[data-theme="light"] .badge-pendiente { background: #3d3018; border-color: #5c4a26; }
+[data-theme="light"] .badge-activo    { background: #1f3d2a; border-color: #2f5c3f; }
 .react-flow__background { background: var(--bg-0); }
 .react-flow__controls button { background: var(--bg-3); border: 1px solid var(--border-2); color: var(--text-2); }
 .react-flow__controls button:hover { background: var(--bg-4); color: var(--text-1); }

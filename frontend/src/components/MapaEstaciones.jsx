@@ -8,6 +8,7 @@ import dagre from '@dagrejs/dagre'
 import { getGrafoEstaciones, getGrafoReal } from '../api.js'
 import NodoInstalacion from './NodoInstalacion.jsx'
 import FloatingEdge from './FloatingEdge.jsx'
+import { cssVar } from '../utils/theme.js'
 
 const NODE_W = 188
 const NODE_H = 80
@@ -47,12 +48,12 @@ function saveLayout(nodes, modo) {
 function colorArco({ fibras_libres, fibras_danadas, fibras_total }) {
   const danadas = fibras_danadas || 0
   const total   = fibras_total || 0
-  if (danadas > 0) return '#ef4444'
-  if (!total)      return '#1e2d45'
+  if (danadas > 0) return cssVar('--danada')
+  if (!total)      return cssVar('--border')
   const pct = (fibras_libres || 0) / total
-  if (pct >= 0.5)  return '#22c55e'
-  if (pct > 0)     return '#f59e0b'
-  return '#ef4444'
+  if (pct >= 0.5)  return cssVar('--libre')
+  if (pct > 0)     return cssVar('--ocupada')
+  return cssVar('--danada')
 }
 
 const nodeTypes = { estacion: NodoInstalacion }
@@ -109,8 +110,8 @@ export default function MapaEstaciones({ onVerDetalle }) {
         data:         data_arco,
         type:         'floating',
         label:        `${a.fibras_libres || 0}L / ${total}F`,
-        labelStyle:   { fill: '#94a3b8', fontFamily: 'JetBrains Mono', fontSize: 10 },
-        labelBgStyle: { fill: '#0d1321', fillOpacity: 0.85 },
+        labelStyle:   { fill: cssVar('--edge-label-text'), fontFamily: 'JetBrains Mono', fontSize: 10 },
+        labelBgStyle: { fill: cssVar('--edge-label-bg'), fillOpacity: 0.9 },
         style:        { stroke: color, strokeWidth: 2 },
       }
     })
@@ -193,10 +194,10 @@ export default function MapaEstaciones({ onVerDetalle }) {
           <Background color="var(--border)" gap={24} size={1} />
           <Controls style={{ bottom:20, left:20 }} />
           <MiniMap
-            nodeColor={() => '#0ea5e920'}
+            nodeColor={() => cssVar('--cyan') + '33'}
             nodeStrokeColor={() => 'var(--cyan)'}
             nodeStrokeWidth={2}
-            style={{ bottom:20, right: seleccion ? 380 : 20 }}
+            style={{ bottom:20, right: seleccion?.tipo === 'segmento' ? 380 : 20 }}
           />
         </ReactFlow>
 
@@ -274,7 +275,7 @@ export default function MapaEstaciones({ onVerDetalle }) {
           </button>
         </div>
 
-        {seleccion?.tipo === 'instalacion' && onVerDetalle && (
+        {seleccion?.tipo === 'instalacion' && onVerDetalle && seleccion.data.num_repartidores > 0 && (
           <div style={{
             position:'absolute', bottom:80, left:'50%',
             transform:'translateX(-50%)',
@@ -296,26 +297,11 @@ export default function MapaEstaciones({ onVerDetalle }) {
       {seleccion?.tipo === 'segmento' && (
         <PanelSegmento data={seleccion.data} onCerrar={() => setSeleccion(null)} />
       )}
-      {seleccion?.tipo === 'instalacion' && (
-        <PanelInstalacion data={seleccion.data} onCerrar={() => setSeleccion(null)} />
-      )}
     </div>
   )
 }
 
-// ── Paneles ───────────────────────────────────────────────────────────────────
-function PanelInstalacion({ data, onCerrar }) {
-  return (
-    <Panel onCerrar={onCerrar}>
-      <PanelTitle>{data.nombre}</PanelTitle>
-      <div style={{ display:'flex', gap:8 }}>
-        {data.linea && <Chip>{data.linea}</Chip>}
-        <Chip>{data.num_repartidores} repartidor{data.num_repartidores !== 1 ? 'es' : ''}</Chip>
-      </div>
-    </Panel>
-  )
-}
-
+// ── Panel ─────────────────────────────────────────────────────────────────
 function PanelSegmento({ data, onCerrar }) {
   const modo        = data._modo || 'agrupada'
   const esReal       = modo === 'real'

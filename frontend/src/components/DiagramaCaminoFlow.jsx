@@ -14,9 +14,9 @@ const ESTADO_COL = {
   eliminado: 'var(--danada)',
 }
 const ESTADO_BG = {
-  activo:    '#0a1a0a',
-  pendiente: '#1a1000',
-  eliminado: '#1a0a0a',
+  activo:    'var(--estado-bg-activo)',
+  pendiente: 'var(--estado-bg-pendiente)',
+  eliminado: 'var(--estado-bg-eliminado)',
 }
 
 const RANKSEP = 130  // separación horizontal entre bloques (~ ancho de cable de antes)

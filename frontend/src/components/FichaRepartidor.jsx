@@ -20,11 +20,11 @@ function ColConexion({ p }) {
     textAlign: 'center',
   }
   if (p.conexion_equipo) {
-    return <span style={{ ...box, color: '#c8cdd4' }}>{p.conexion_equipo}</span>
+    return <span style={{ ...box, color: 'var(--conexion-equipo)' }}>{p.conexion_equipo}</span>
   }
   if (p.conexion_repartidor_codigo) {
     return (
-      <span style={{ ...box, color: '#c8a96e' }}>
+      <span style={{ ...box, color: 'var(--conexion-repartidor)' }}>
         → {p.conexion_repartidor_codigo} #{p.conexion_puerto_identificador}
       </span>
     )

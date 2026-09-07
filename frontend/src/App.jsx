@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { Sun, Moon } from 'lucide-react'
 import MapaRed from './components/MapaRed.jsx'
 import MapaEstaciones from './components/MapaEstaciones.jsx'
 import VistaRepartidores from './components/VistaRepartidores.jsx'
 import ListaCaminos from './components/ListaCaminos.jsx'
+import { getInitialTheme, applyTheme } from './utils/theme.js'
 
 const VISTAS = {
   ESTACIONES:   'estaciones',
@@ -14,6 +16,13 @@ const VISTAS = {
 export default function App() {
   const [vista, setVista]                 = useState(VISTAS.ESTACIONES)
   const [instalacionActiva, setInstalacion] = useState(null)  // { id, nombre }
+  const [theme, setTheme]                 = useState(getInitialTheme)
+
+  useEffect(() => { applyTheme(theme) }, [theme])
+
+  function toggleTheme() {
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+  }
 
   // Desde MapaEstaciones: "Ver repartidores de X"
   function handleVerRepartidores(instalacion) {
@@ -50,20 +59,20 @@ export default function App() {
     }}>
       {/* ── Barra superior ── */}
       <header style={{
-        height: 48, background: 'var(--bg-1)',
-        borderBottom: '1px solid var(--border)',
+        height: 48, background: 'var(--bg-header)',
+        borderBottom: '1px solid var(--header-border)',
         display: 'flex', alignItems: 'center',
         padding: '0 16px', gap: 24, flexShrink: 0,
       }}>
         {/* Logo */}
         <span style={{
           fontFamily: 'var(--text-mono)', fontSize: 15, fontWeight: 700,
-          color: 'var(--cyan)', letterSpacing: 2, marginRight: 8,
+          color: 'var(--header-cyan)', letterSpacing: 2, marginRight: 8,
         }}>
           NODUS
         </span>
         <span style={{
-          fontSize: 11, color: 'var(--text-3)',
+          fontSize: 11, color: 'var(--header-text-3)',
           fontFamily: 'var(--text-mono)', marginRight: 16,
         }}>
           FGV · Red de fibra óptica
@@ -82,8 +91,8 @@ export default function App() {
           {/* Repartidores — solo visible si hay instalación */}
           {instalacionActiva && (
             <div style={{ display:'flex', alignItems:'center',
-                          background: vista === VISTAS.REPARTIDORES ? 'var(--bg-0)' : 'none',
-                          border: `1px solid ${vista === VISTAS.REPARTIDORES ? 'var(--border)' : 'transparent'}`,
+                          background: vista === VISTAS.REPARTIDORES ? 'var(--header-bg-chip)' : 'none',
+                          border: `1px solid ${vista === VISTAS.REPARTIDORES ? 'var(--header-border)' : 'transparent'}`,
                           borderRadius: 5, overflow:'hidden',
                         }}>
               <button
@@ -100,7 +109,7 @@ export default function App() {
                 onClick={cerrarRepartidores}
                 style={{
                   background: 'none', border: 'none',
-                  color: 'var(--text-3)', cursor: 'pointer',
+                  color: 'var(--header-text-3)', cursor: 'pointer',
                   fontSize: 13, padding: '4px 8px 4px 2px',
                   lineHeight: 1,
                 }}
@@ -126,6 +135,23 @@ export default function App() {
             Caminos
           </button>
         </nav>
+
+        {/* Toggle día / noche */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche'}
+          style={{
+            marginLeft: 'auto',
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'var(--header-bg-raised)', border: '1px solid var(--header-border)',
+            borderRadius: 6, padding: '5px 10px', cursor: 'pointer',
+            color: 'var(--header-text-2)', fontFamily: 'var(--text-mono)', fontSize: 11,
+            transition: 'background 0.15s, color 0.15s',
+          }}
+        >
+          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+          {theme === 'dark' ? 'Día' : 'Noche'}
+        </button>
       </header>
 
       {/* ── Contenido ── */}
@@ -154,10 +180,10 @@ export default function App() {
 
 function tabStyle(activo) {
   return {
-    background:   activo ? 'var(--bg-0)' : 'none',
-    border:       `1px solid ${activo ? 'var(--border)' : 'transparent'}`,
+    background:   activo ? 'var(--header-bg-chip)' : 'none',
+    border:       `1px solid ${activo ? 'var(--header-border)' : 'transparent'}`,
     borderRadius: 5,
-    color:        activo ? 'var(--text-1)' : 'var(--text-3)',
+    color:        activo ? 'var(--header-text-1)' : 'var(--header-text-3)',
     fontFamily:   'var(--text-mono)',
     fontSize:     11,
     padding:      '4px 12px',

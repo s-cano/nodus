@@ -3,10 +3,10 @@ import { Handle, Position } from 'reactflow'
 const handleStyle = { opacity: 0, width: 8, height: 8 }
 
 const TIPO_STYLES = {
-  estacion:    { borderColor: 'var(--cyan)',     width: 188, fontSize: 11, fontWeight: 700 },
-  subestacion: { borderColor: '#f59e0b',         width: 148, fontSize: 10, fontWeight: 600 },
-  taller:      { borderColor: '#a78bfa',         width: 148, fontSize: 10, fontWeight: 600 },
-  oficina:     { borderColor: '#f472b6',         width: 148, fontSize: 10, fontWeight: 600 },
+  estacion:    { borderColor: 'var(--cyan)',            width: 188, fontSize: 11, fontWeight: 700 },
+  subestacion: { borderColor: 'var(--tipo-subestacion)', width: 148, fontSize: 10, fontWeight: 600 },
+  taller:      { borderColor: 'var(--tipo-taller)',      width: 148, fontSize: 10, fontWeight: 600 },
+  oficina:     { borderColor: 'var(--tipo-oficina)',     width: 148, fontSize: 10, fontWeight: 600 },
 }
 
 const TIPO_LABEL = {

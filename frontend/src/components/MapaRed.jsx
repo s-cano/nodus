@@ -9,6 +9,7 @@ import { getGrafo } from '../api.js'
 import NodoRepartidor from './NodoRepartidor.jsx'
 import FloatingEdge from './FloatingEdge.jsx'
 import PanelDetalle from './PanelDetalle.jsx'
+import { cssVar } from '../utils/theme.js'
 
 const NODE_W = 180
 const NODE_H = 64
@@ -40,12 +41,12 @@ function saveLayout(nodes, key) {
 }
 
 function colorArista({ fibras_libres, fibras_danadas, num_fibras }) {
-  if (fibras_danadas > 0)                        return '#ef4444'
-  if (!num_fibras || fibras_libres === undefined) return '#1e2d45'
+  if (fibras_danadas > 0)                        return cssVar('--danada')
+  if (!num_fibras || fibras_libres === undefined) return cssVar('--border')
   const pct = fibras_libres / num_fibras
-  if (pct >= 0.5) return '#22c55e'
-  if (pct > 0)    return '#f59e0b'
-  return '#ef4444'
+  if (pct >= 0.5) return cssVar('--libre')
+  if (pct > 0)    return cssVar('--ocupada')
+  return cssVar('--danada')
 }
 
 // Agrupa las aristas (tramos) por par de repartidores, sin importar el
@@ -114,8 +115,8 @@ function GrafoCable({ todosNodos, todasAristas, cable, seleccion, setSeleccion, 
         id: g.id, source: g.source, target: g.target,
         type: 'floating', data: g,
         label: `${g.fibras_libres ?? '?'}L / ${g.num_fibras}`,
-        labelStyle:   { fill: '#94a3b8', fontFamily: 'JetBrains Mono', fontSize: 10 },
-        labelBgStyle: { fill: '#0d1321', fillOpacity: 0.85 },
+        labelStyle:   { fill: cssVar('--edge-label-text'), fontFamily: 'JetBrains Mono', fontSize: 10 },
+        labelBgStyle: { fill: cssVar('--edge-label-bg'), fillOpacity: 0.9 },
         style: { stroke: color, strokeWidth: 2 },
       }
     })
@@ -168,7 +169,7 @@ function GrafoCable({ todosNodos, todasAristas, cable, seleccion, setSeleccion, 
         <Background color="var(--border)" gap={24} size={1} />
         <Controls style={{ bottom:20, left:20 }} />
         <MiniMap
-          nodeColor={n => n.data.verificado ? '#0ea5e920' : '#f59e0b20'}
+          nodeColor={n => n.data.verificado ? cssVar('--cyan') + '33' : cssVar('--ocupada') + '33'}
           nodeStrokeColor={n => n.data.verificado ? 'var(--cyan)' : 'var(--ocupada)'}
           nodeStrokeWidth={2}
           style={{ bottom:20, right: seleccion ? 380 : 20 }}

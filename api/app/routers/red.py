@@ -55,16 +55,31 @@ async def get_grafo():
 @router.get("/red/grafo-estaciones")
 async def get_grafo_estaciones():
     """
-    Vista de red a nivel de instalación (modo "agrupada").
+    Vista de red a nivel de instalación (modo "agrupada"): es el mapa
+    topológico real de la red (como el plano oficial de Metrovalencia),
+    no una agregación arbitraria. Cada parada física de la ruta de un
+    cable es un nodo, tenga o no repartidor documentado; los segmentos
+    se construyen siempre entre paradas consecutivas de la ruta física
+    completa del cable (cable.ruta_instalaciones).
 
-    El total de cada segmento entre dos instalaciones NO se calcula a partir
-    de cable.num_fibras_total (informativo, puede no coincidir tramo a tramo
+    IMPORTANTE: ya no se filtra la ruta por "paradas con algún repartidor"
+    (rep_ids). Ese filtro dependía de si CUALQUIER otro cable tenía panel
+    en una parada intermedia — algo ajeno al cable que se está procesando
+    y que producía resultados inconsistentes (un cable podía trocearse en
+    una parada por casualidad, y no trocearse en otra idéntica, según qué
+    hubiera documentado allí un cable sin ninguna relación). Ahora cada
+    cable segmenta siempre según su propia ruta física completa, sin
+    consultar nada externo — además de ser más correcto, evita una
+    consulta a la base de datos por cada cable.
+
+    El total de cada segmento entre dos paradas NO se calcula a partir de
+    cable.num_fibras_total (informativo, puede no coincidir tramo a tramo
     en cables con corte/reinserción o anomalías de fusión parcial). Se
     calcula sumando las fibras de los tramos que realmente cubren ese
-    segmento —directos o de paso—, igual que ya hacía /red/grafo-real para
-    pares de repartidores. Un tramo "cubre" un segmento si su rango de
-    índices en la ruta física del cable contiene al del segmento (permite
-    créditar fibras que pasan de largo por una instalación sin cortarse ahí).
+    segmento —directos o de paso—. Un tramo "cubre" un segmento si su
+    rango de índices en la ruta física del cable contiene al del segmento
+    (permite acreditar fibras que pasan de largo por una parada sin
+    cortarse ahí).
     """
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -73,8 +88,8 @@ async def get_grafo_estaciones():
             SELECT i.id, i.nombre, i.tipo, i.linea,
                    COUNT(DISTINCT r.id) AS num_repartidores
             FROM nodus.instalacion i
-            JOIN nodus.ubicacion   u ON u.instalacion_id = i.id
-            JOIN nodus.repartidor  r ON r.ubicacion_id   = u.id
+            LEFT JOIN nodus.ubicacion   u ON u.instalacion_id = i.id
+            LEFT JOIN nodus.repartidor  r ON r.ubicacion_id   = u.id
             WHERE EXISTS (
                 SELECT 1 FROM nodus.cable c
                 WHERE c.ruta_instalaciones IS NOT NULL
@@ -82,7 +97,6 @@ async def get_grafo_estaciones():
                   AND i.id = ANY(string_to_array(c.ruta_instalaciones, ','))
             )
             GROUP BY i.id, i.nombre, i.tipo, i.linea
-            HAVING COUNT(DISTINCT r.id) > 0
             ORDER BY i.nombre
         """)
 
@@ -98,17 +112,7 @@ async def get_grafo_estaciones():
         for cable in cables:
             ruta_completa = [e.strip() for e in cable["ruta_instalaciones"].split(",")]
 
-            instalaciones_con_rep = await conn.fetch("""
-                SELECT DISTINCT u.instalacion_id
-                FROM nodus.repartidor r
-                JOIN nodus.ubicacion u ON u.id = r.ubicacion_id
-                WHERE u.instalacion_id = ANY($1::text[])
-            """, ruta_completa)
-
-            rep_ids = {r["instalacion_id"] for r in instalaciones_con_rep}
-            ruta = [e for e in ruta_completa if e in rep_ids]
-
-            if len(ruta) < 2:
+            if len(ruta_completa) < 2:
                 continue
 
             est_idx = {est: idx for idx, est in enumerate(ruta_completa)}
@@ -143,14 +147,12 @@ async def get_grafo_estaciones():
                     ts[tid] = {}
                 ts[tid][fs["estado_logico"]] = fs["n"]
 
-            for i in range(len(ruta) - 1):
-                ea, eb = ruta[i], ruta[i + 1]
+            # Segmentar SIEMPRE por paradas consecutivas de la ruta física
+            # completa (i, i+1), sin filtrar por si tienen repartidor.
+            for i in range(len(ruta_completa) - 1):
+                ea, eb = ruta_completa[i], ruta_completa[i + 1]
                 key = (min(ea, eb), max(ea, eb))
-                ia = est_idx.get(ea)
-                ib = est_idx.get(eb)
-                if ia is None or ib is None:
-                    continue
-                seg_lo, seg_hi = (ia, ib) if ia < ib else (ib, ia)
+                seg_lo, seg_hi = i, i + 1
 
                 libres = ocupadas = danadas = reservadas = 0
                 for t in tramos:
@@ -218,10 +220,9 @@ async def get_grafo_real():
 
     A diferencia de /red/grafo-estaciones, aquí solo cuentan tramos cuyos
     dos extremos están exactamente en las dos instalaciones del par (sin
-    crédito por paso). fibras_total ya se calculaba como SUM(t.num_fibras)
-    de esos tramos reales — coherente con el nuevo criterio de
-    /red/grafo-estaciones. Único cambio: se añade fibras_reservadas, que
-    antes no se rastreaba (se perdía silenciosamente).
+    crédito por paso, sin paradas intermedias sin repartidor: una
+    instalación sin ningún repartidor no puede aparecer aquí, porque
+    tramo.rep_extremo_a/b son claves foráneas obligatorias a repartidor).
     """
     pool = get_pool()
     async with pool.acquire() as conn:
